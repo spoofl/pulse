@@ -1,0 +1,93 @@
+# Pulse
+
+A local machine monitor built with **React, TypeScript, Vite, Express, and Recharts**. It displays real statistics from the machine running the Node server, with a responsive interface and light/dark themes.
+
+## Run locally
+
+Requires Node.js **22.12 or newer** and npm.
+
+```sh
+npm install
+npm run dev
+```
+
+Open **http://127.0.0.1:5173**. Vite serves the UI and proxies `/api` to the local collector on port 4310.
+
+For a production build:
+
+```sh
+npm run build
+npm start
+```
+
+Open **http://127.0.0.1:4310**. One Node process serves the built UI and the metrics API. Stop either mode with Ctrl+C.
+
+## What it monitors
+
+- **Overview:** CPU and memory usage, storage capacity, primary-interface traffic, health checks, top processes, and uptime.
+- **Performance:** Per-core utilization, CPU clock speed and temperature, system load averages, physical memory, buffers/cache, swap, and disk throughput.
+- **Storage:** Unique persistent mounted filesystems, available space, physical drive inventory, temperatures, and reported S.M.A.R.T. status.
+- **Network:** Download/upload rates, transfer counters, adapter addresses, link state, speed, and error counters.
+- **Processes:** Search by name, PID, or user; sort by CPU, resident memory, name, or PID; load additional rows.
+- **Health:** Explicit thresholds, unavailable checks, machine details, battery charge, and battery health when supported.
+
+Charts offer 1-minute, 5-minute, 15-minute, and 1-hour windows. Pause freezes the displayed snapshot while collection continues. Export downloads the snapshot and the browser's collected history as JSON.
+
+## Collection and interpretation
+
+The collector samples every 2 seconds by default, keeps up to one hour of history in RAM, and refreshes physical drive metadata every minute. History begins when the server starts, and restarting clears it. Only observed samples are plotted. Multiple browser tabs share one collector.
+
+Most metrics come from [systeminformation](https://systeminformation.io/). Linux processes are sampled directly from `/proc` with bounded filesystem concurrency, avoiding a shell command per process. CPU usage is the change in process ticks divided by the change in total machine ticks, so 100% represents all CPU capacity on Linux. New processes need two samples; PID reuse and exiting processes are handled. Process names may be truncated by the kernel. Other operating systems use the systeminformation process API and its native CPU conventions. Linux has been verified locally; other platforms depend on the library's support.
+
+Memory usage is `total - available`, so reclaimable cache does not inflate usage. Filesystems mounted repeatedly are deduplicated by device, and temporary/virtual filesystems are excluded. Network summary rates use the default interface (or the first active physical interface) to avoid counting bridged traffic twice. Network transfer counters run from the last operating-system/interface reset. Link state does not establish internet connectivity.
+
+Missing or unsupported measurements are shown as **Unavailable** or **—**, not healthy or zero. Temperature and S.M.A.R.T. depend on the OS, hardware, installed tools, and current device permissions. In particular, the drive on this machine did not expose S.M.A.R.T. status under the current account. No elevated privileges are requested. Collection failures preserve unrelated metrics; a stale or unreachable collector is explicitly indicated.
+
+Health checks use fixed, visible thresholds. They are operational indicators, not a complete hardware diagnostic:
+
+| Reading | Warning | Critical |
+| --- | --- | --- |
+| CPU usage, latest sample | ≥90% | ≥98% |
+| Memory usage | ≥85% | ≥95% |
+| Volume usage | ≥85% | ≥95% |
+| Highest CPU temperature | ≥80°C | ≥95°C |
+| Battery charge without AC power | ≤20% | ≤10% |
+| S.M.A.R.T. | — | Drive reports failure |
+
+“No issues detected” refers to available checks. Unavailable checks are counted separately. Temperature limits are generic defaults; manufacturer-specific limits may differ.
+
+Both development and production servers bind to **127.0.0.1**. The API validates Host and Origin, has no write operations or permissive CORS, and omits process arguments, environment variables, and disk serial numbers. Fonts and assets are bundled locally. There are no external runtime requests, accounts, or telemetry. This is a local application; it does not include remote access or authentication.
+
+## Configuration
+
+Environment variables are passed to the command directly; `.env` files are not automatically loaded by the server.
+
+```sh
+PORT=4400 SAMPLE_INTERVAL_MS=5000 npm run dev
+```
+
+`PORT` changes the API/production port and the development proxy target. `SAMPLE_INTERVAL_MS` must be between 1000 and 30000. Samples never overlap; slow system calls can extend the interval. A metric call has a bounded wait and is not duplicated while an earlier call is still pending.
+
+## Verification
+
+```sh
+npm test          # HTTP protections, health boundaries, storage deduplication, process parsing
+npm run build    # TypeScript checks and production client/server builds
+npm run test:e2e # Builds, starts an isolated server, and runs browser checks
+```
+
+Browser tests cover live readings, navigation, search/sorting, pause/resume, JSON export, theme persistence, outage recovery, local-only asset requests, and mobile overflow. They use `/usr/bin/chromium-browser` when installed. Otherwise, install Playwright Chromium with `npx playwright install chromium`, or specify `CHROMIUM_PATH=/path/to/chromium`.
+
+## Project layout
+
+```text
+src/                    React UI, charts, styles, polling, and formatting
+server/collector.ts     Shared sampler, metric normalization, bounded history
+server/linux-processes.ts  Linux process counters and process inventory
+server/health.ts        Health thresholds and volume deduplication
+server/app.ts          Local API and production static serving
+shared/types.ts        Client/server response contracts
+tests/                 Browser integration tests
+```
+
+Metric references: [memory fields](https://systeminformation.io/memory.html), [disk and S.M.A.R.T. fields](https://systeminformation.io/filesystem.html), [rate sampling](https://systeminformation.io/statsfunctions.html), and [Linux `/proc` documentation](https://www.kernel.org/doc/html/latest/filesystems/proc.html).
