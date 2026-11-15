@@ -36,12 +36,20 @@ Stop any existing Pulse server using port 4310 before starting LAN mode, or choo
 
 - **Overview:** CPU and memory usage, storage capacity, primary-interface traffic, health checks, top processes, and uptime.
 - **Performance:** Per-core utilization, CPU clock speed and temperature, system load averages, physical memory, buffers/cache, swap, and disk throughput.
-- **Storage:** Unique persistent mounted filesystems, available space, physical drive inventory, temperatures, and reported S.M.A.R.T. status.
+- **Storage:** Folder/file size breakdown with a doughnut chart, largest items first, folder drill-down and breadcrumbs, unique persistent mounted filesystems, available space, physical drive inventory, temperatures, and reported S.M.A.R.T. status.
 - **Network:** Download/upload rates, transfer counters, adapter addresses, link state, speed, and error counters.
 - **Processes:** Search by name, PID, or user; sort by CPU, resident memory, name, or PID; load additional rows.
 - **Health:** Explicit thresholds, unavailable checks, machine details, battery charge, and battery health when supported.
 
 Charts offer 1-minute, 5-minute, 15-minute, and 1-hour windows. Pause freezes the displayed snapshot while collection continues. Export downloads the snapshot and the browser's collected history as JSON.
+
+### Find what is using disk space
+
+Open **Storage**, select a volume, and click **Analyze storage**. The doughnut chart shows the share of measured space used by its largest folders and files. Click a folder to scan inside it; use the breadcrumbs to return. **Rescan folder** refreshes an existing result. This is a separate, on-demand scan, independent of the live metrics and their pause button.
+
+The scanner uses [GNU `du`](https://www.gnu.org/software/coreutils/manual/html_node/du-invocation.html) (normally included on Linux), counts allocated disk space including hidden files, counts hard-linked data once per scan, and skips symbolic-link targets and other filesystems. It reads names and sizes, never file contents, and requires no administrator privileges. The largest 200 immediate items are retained; remaining space appears under **Other items & folder metadata**. Directory sizes include their descendants. On unsupported systems the UI reports that scanning is unavailable.
+
+Only one scan runs at a time, with a two-minute limit. Up to 24 folder results stay in memory until rescanned, evicted, or the server restarts; live updates never trigger another scan. Unreadable locations, files changing during a scan, and time limits produce visibly **partial** results. The chart's percentages refer to measured space, not full volume capacity. Permissions, filesystem metadata, snapshots/shared blocks, and deleted files still held open can make the scan differ from the volume's used-space reading. In LAN mode, connected devices can also view these folder and file names.
 
 ## Collection and interpretation
 
@@ -81,7 +89,7 @@ PORT=4400 SAMPLE_INTERVAL_MS=5000 npm run dev
 ## Verification
 
 ```sh
-npm test          # HTTP protections, health boundaries, storage deduplication, process parsing
+npm test          # HTTP protections, storage scans, health boundaries, process parsing
 npm run build    # TypeScript checks and production client/server builds
 npm run test:e2e # Builds, starts an isolated server, and runs browser checks
 ```
@@ -94,6 +102,7 @@ Browser tests cover live readings, navigation, search/sorting, pause/resume, JSO
 src/                    React UI, charts, styles, polling, and formatting
 server/collector.ts     Shared sampler, metric normalization, bounded history
 server/linux-processes.ts  Linux process counters and process inventory
+server/storage.ts       On-demand folder scans and bounded in-memory results
 server/health.ts        Health thresholds and volume deduplication
 server/app.ts          Local API and production static serving
 shared/types.ts        Client/server response contracts

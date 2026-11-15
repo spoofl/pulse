@@ -28,6 +28,27 @@ export interface Drive {
   temperature: number | null;
 }
 
+export interface StorageEntry {
+  name: string;
+  path: string;
+  bytes: number;
+  kind: 'directory' | 'file' | 'symlink' | 'other';
+}
+
+export interface StorageUsage {
+  mount: string;
+  path: string;
+  status: 'idle' | 'scanning' | 'ready' | 'error';
+  startedAt: number | null;
+  scannedAt: number | null;
+  total: number | null;
+  entries: StorageEntry[];
+  otherBytes: number;
+  entryCount: number;
+  partial: boolean;
+  message: string | null;
+}
+
 export interface NetworkInterface {
   name: string;
   address: string;

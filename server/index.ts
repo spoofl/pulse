@@ -1,5 +1,6 @@
 import { createApp } from './app.js';
 import { Collector } from './collector.js';
+import { StorageScanner } from './storage.js';
 import { hostname, networkInterfaces } from 'node:os';
 
 const port = Number(process.env.PORT || 4310);
@@ -9,11 +10,12 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT m
 if (!Number.isInteger(interval) || interval < 1000 || interval > 30_000) throw new Error('SAMPLE_INTERVAL_MS must be between 1000 and 30000.');
 
 const collector = new Collector(interval);
+const storageScanner = new StorageScanner();
 const addresses = lan ? [...new Set(Object.values(networkInterfaces()).flatMap(interfaces => interfaces || [])
   .filter(network => !network.internal && network.family === 'IPv4').map(network => network.address))] : [];
 const machine = hostname();
 const allowedHosts = lan ? [...addresses, machine, `${machine}.local`] : [];
-const server = createApp(collector, { allowedHosts }).listen(port, lan ? '0.0.0.0' : '127.0.0.1', () => {
+const server = createApp(collector, { allowedHosts, storageScanner }).listen(port, lan ? '0.0.0.0' : '127.0.0.1', () => {
   console.log(`Pulse is running at http://127.0.0.1:${port}`);
   if (lan) {
     for (const address of addresses) console.log(`Network: http://${address}:${port}`);
@@ -26,6 +28,7 @@ server.on('error', error => { console.error(error.message); collector.stop(); pr
 
 function shutdown() {
   collector.stop();
+  storageScanner.stop();
   server.close(() => process.exit());
   setTimeout(() => process.exit(1), 5000).unref();
 }

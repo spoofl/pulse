@@ -4,6 +4,7 @@ import type { HealthStatus, HistoryPoint, MetricsResponse, Snapshot } from '../s
 import { Badge, Chart, Empty, Icon, Meter, MetricCard, Panel, RangeSelect, StatusIcon, ViewLink } from './components';
 import { bytes, clockTime, downloadJson, pct, rate, temp, uptime } from './lib/format';
 import { useMetrics } from './lib/useMetrics';
+import { StorageBreakdown } from './StorageBreakdown';
 
 const navigation = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -17,7 +18,7 @@ type Page = typeof navigation[number]['id'];
 const titles: Record<Page, [string, string]> = {
   overview: ['System overview', 'A live look at your machine’s performance and health.'],
   performance: ['Performance', 'See where your resources are going, moment by moment.'],
-  storage: ['Storage', 'Keep an eye on your drives, capacity, and disk activity.'],
+  storage: ['Storage', 'See what’s taking up space and keep an eye on your drives.'],
   network: ['Network', 'Follow the traffic moving in and out of your machine.'],
   processes: ['Processes', 'Find out what’s running and what it’s using.'],
   health: ['System health', 'Practical checks for a well-running machine.'],
@@ -147,6 +148,7 @@ function Storage({ data, minutes, setMinutes }: { data: MetricsResponse; minutes
   const available = s.storage.volumes.reduce((sum, volume) => sum + volume.available, 0);
   return <>
     <div className="metrics-grid"><MetricCard icon={HardDrive} title="Total capacity" {...splitValue(bytes(total || null))} note={`${s.storage.volumes.length} unique mounted volumes`} color="blue" to="storage" /><MetricCard icon={Layers3} title="Available space" {...splitValue(bytes(total ? available : null))} note="Ready for applications and files" to="storage" /><MetricCard icon={ArrowDown} title="Disk read" {...splitValue(rate(s.storage.read))} note="Across mounted drives" history={data.history} series="read" to="storage" /><MetricCard icon={ArrowUp} title="Disk write" {...splitValue(rate(s.storage.write))} note="Across mounted drives" history={data.history} series="write" color="blue" to="storage" /></div>
+    <StorageBreakdown volumes={s.storage.volumes} />
     <div className="two-column storage-columns"><Panel title="Mounted volumes" subtitle="Persistent filesystems · duplicate mounts excluded"><StorageVolumes snapshot={s} /></Panel><Panel title="Disk activity" subtitle="Read and write throughput" action={<RangeSelect minutes={minutes} onChange={setMinutes} />}><div className="chart-legend"><span><i className="legend-dot green" />Read <strong>{rate(s.storage.read)}</strong></span><span><i className="legend-dot blue" />Write <strong>{rate(s.storage.write)}</strong></span></div><Chart history={data.history} series={['read', 'write']} minutes={minutes} /></Panel></div>
     <Panel title="Physical drives" subtitle="Hardware inventory and reported drive health · refreshed every minute">
       <div className="drive-grid">{s.storage.drives.map(drive => <div className="drive-card" key={drive.device}><span className="drive-icon"><Icon icon={HardDrive} size={26} /></span><div><h3>{drive.name}</h3><p className="muted mono">{drive.device}</p><div className="drive-tags"><span>{drive.type || 'Drive'}</span><span>{bytes(drive.size)}</span><span>{drive.interface || 'Unknown interface'}</span></div><div className="drive-health"><span>S.M.A.R.T.</span><Badge status={/^(ok|passed|verified|healthy)$/i.test(drive.smart) ? 'ok' : /^(failing|failed|bad)$/i.test(drive.smart) ? 'critical' : 'unknown'}>{/^(unknown|)$/i.test(drive.smart) ? 'Unavailable' : drive.smart}</Badge>{drive.temperature !== null && <span>{temp(drive.temperature)}</span>}</div></div></div>)}</div>
