@@ -22,6 +22,16 @@ npm start
 
 Open **http://127.0.0.1:4310**. One Node process serves the built UI and the metrics API. Stop either mode with Ctrl+C.
 
+## Open on other devices on your network
+
+```sh
+npm run lan
+```
+
+This builds the app, starts it on all IPv4 interfaces, and prints a **Network** URL such as `http://192.168.1.25:4310`. Open that printed URL on a phone, tablet, or computer connected to the same network. Every device sees statistics for the machine running Pulse. LAN mode allows network access without a login; the regular `dev` and `start` commands continue to use loopback only.
+
+Stop any existing Pulse server using port 4310 before starting LAN mode, or choose another port with `PORT=4400 npm run lan`. If another device cannot connect, allow inbound TCP traffic for that port through the host firewall and check that the Wi-Fi network permits devices to communicate (guest networks may isolate clients). Stop sharing with Ctrl+C. If the machine's network address changes, restart the command to print and allow its new address.
+
 ## What it monitors
 
 - **Overview:** CPU and memory usage, storage capacity, primary-interface traffic, health checks, top processes, and uptime.
@@ -56,7 +66,7 @@ Health checks use fixed, visible thresholds. They are operational indicators, no
 
 “No issues detected” refers to available checks. Unavailable checks are counted separately. Temperature limits are generic defaults; manufacturer-specific limits may differ.
 
-Both development and production servers bind to **127.0.0.1**. The API validates Host and Origin, has no write operations or permissive CORS, and omits process arguments, environment variables, and disk serial numbers. Fonts and assets are bundled locally. There are no external runtime requests, accounts, or telemetry. This is a local application; it does not include remote access or authentication.
+Development and normal production servers bind to **127.0.0.1**. The explicit `lan` command binds the production server to **0.0.0.0** and allows this machine's IPv4 addresses and hostname. The API validates Host and Origin in both modes, has no write operations or permissive CORS, and omits process arguments, environment variables, and disk serial numbers. Fonts and assets are bundled locally. There are no external runtime requests, accounts, or telemetry. Authentication is not included.
 
 ## Configuration
 
@@ -66,7 +76,7 @@ Environment variables are passed to the command directly; `.env` files are not a
 PORT=4400 SAMPLE_INTERVAL_MS=5000 npm run dev
 ```
 
-`PORT` changes the API/production port and the development proxy target. `SAMPLE_INTERVAL_MS` must be between 1000 and 30000. Samples never overlap; slow system calls can extend the interval. A metric call has a bounded wait and is not duplicated while an earlier call is still pending.
+`PORT` changes the API/production port (including LAN mode) and the development proxy target. `SAMPLE_INTERVAL_MS` must be between 1000 and 30000. Samples never overlap; slow system calls can extend the interval. A metric call has a bounded wait and is not duplicated while an earlier call is still pending.
 
 ## Verification
 

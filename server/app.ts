@@ -2,12 +2,18 @@ import express from 'express';
 import path from 'node:path';
 import type { Collector } from './collector.js';
 
-export function createApp(collector: Pick<Collector, 'getMetrics'>, staticDirectory = path.resolve('dist')) {
+interface AppOptions {
+  staticDirectory?: string;
+  allowedHosts?: string[];
+}
+
+export function createApp(collector: Pick<Collector, 'getMetrics'>, { staticDirectory = path.resolve('dist'), allowedHosts = [] }: AppOptions = {}) {
   const app = express();
+  const hosts = new Set(['localhost', '127.0.0.1', '[::1]', ...allowedHosts].map(host => host.toLowerCase()));
   app.disable('x-powered-by');
   app.use((req, res, next) => {
-    // Loopback binding plus Host/Origin validation prevents remote webpages and DNS rebinding from reading stats.
-    if (!['localhost', '127.0.0.1', '[::1]'].includes(req.hostname)) return void res.status(403).json({ error: 'Local access only.' });
+    // LAN mode adds only this machine's addresses; arbitrary Host headers remain blocked.
+    if (!hosts.has((req.hostname || '').toLowerCase())) return void res.status(403).json({ error: 'Host not allowed.' });
     const origin = req.get('origin');
     if (origin) {
       try { if (new URL(origin).host !== req.get('host')) return void res.status(403).json({ error: 'Same-origin access only.' }); }
